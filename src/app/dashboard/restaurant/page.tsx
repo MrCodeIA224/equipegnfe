@@ -35,7 +35,7 @@ export default function RestaurantDashboard() {
       setOrders(o.data.results || o.data);
     }).catch(() => toast.error('Erreur de chargement.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user, router]);
 
   const toggleOpen = async (restaurantId: number) => {
     try {
@@ -209,7 +209,7 @@ export default function RestaurantDashboard() {
       ) : (
         <div className="text-center py-16">
           <p className="text-5xl mb-4">🍽️</p>
-          <h2 className="font-bold text-warm-900 mb-2">Vous n'avez pas encore de restaurant</h2>
+          <h2 className="font-bold text-warm-900 mb-2">Vous n&apos;avez pas encore de restaurant</h2>
           <p className="text-warm-500 text-sm mb-6">Créez votre premier restaurant pour commencer à recevoir des commandes.</p>
           <Button onClick={() => setTab('create')}><Plus className="w-4 h-4" /> Créer mon restaurant</Button>
         </div>

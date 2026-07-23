@@ -118,7 +118,7 @@ export default function Navbar() {
                   href="/auth/register"
                   className="px-4 py-2 text-sm font-semibold text-white bg-primary-500 hover:bg-primary-600 rounded-xl shadow-sm transition-colors"
                 >
-                  S'inscrire
+                  S&apos;inscrire
                 </Link>
               </div>
             )}
@@ -188,7 +188,7 @@ export default function Navbar() {
                 Connexion
               </Link>
               <Link href="/auth/register" className="flex-1 py-2.5 text-center text-sm font-semibold bg-primary-500 text-white rounded-xl" onClick={() => setMobileOpen(false)}>
-                S'inscrire
+                S&apos;inscrire
               </Link>
             </div>
           )}

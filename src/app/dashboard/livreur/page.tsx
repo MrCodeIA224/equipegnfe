@@ -21,12 +21,6 @@ export default function LivreurDashboard() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'available' | 'mine'>('available');
 
-  useEffect(() => {
-    if (!user) { router.push('/auth/login'); return; }
-    if (user.role !== 'LIVREUR') { router.push('/dashboard/client'); return; }
-    loadData();
-  }, [user]);
-
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -38,17 +32,17 @@ export default function LivreurDashboard() {
         marketplaceApi.getOrders(),                     // toutes mes commandes mp
       ]);
       setAvailableDelivery(avail.data);
-      // Mes commandes delivery actives (PICKED_UP, DELIVERING, LIVREUR_CANCELLED)
+      // Mes commandes delivery (en cours + historique livrées)
       const allMine: DeliveryOrder[] = mine.data.results || mine.data;
       setMyDeliveries(allMine.filter(o =>
-        ['PICKED_UP', 'DELIVERING', 'LIVREUR_CANCELLED'].includes(o.status)
+        ['PICKED_UP', 'DELIVERING', 'LIVREUR_CANCELLED', 'DELIVERED'].includes(o.status)
       ));
       setNeedDelivery(needDel.data);
       setMpAvailable(mpAvail.data);
-      // Mes commandes marketplace actives
+      // Mes commandes marketplace (en cours + historique livrées)
       const allMpMine: MarketplaceOrder[] = mpMine.data.results || mpMine.data;
       setMyMpOrders(allMpMine.filter(o =>
-        ['DELIVERING', 'LIVREUR_CANCELLED'].includes(o.status)
+        ['DELIVERING', 'LIVREUR_CANCELLED', 'DELIVERED'].includes(o.status)
       ));
     } catch {
       toast.error('Erreur de chargement.');
@@ -56,6 +50,14 @@ export default function LivreurDashboard() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    if (!user) { router.push('/auth/login'); return; }
+    if (user.role !== 'LIVREUR') { router.push('/dashboard/client'); return; }
+    // loadData est aussi le handler du bouton "Actualiser" ; son setLoading(true) initial est un no-op ici.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData();
+  }, [user, loadData, router]);
 
   const acceptDelivery = async (orderId: number) => {
     try {
@@ -66,7 +68,7 @@ export default function LivreurDashboard() {
       const { data } = await deliveryApi.getOrders();
       const allMine: DeliveryOrder[] = data.results || data;
       setMyDeliveries(allMine.filter(o =>
-        ['PICKED_UP', 'DELIVERING', 'LIVREUR_CANCELLED'].includes(o.status)
+        ['PICKED_UP', 'DELIVERING', 'LIVREUR_CANCELLED', 'DELIVERED'].includes(o.status)
       ));
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } };
@@ -82,7 +84,7 @@ export default function LivreurDashboard() {
       const { data } = await marketplaceApi.getOrders();
       const allMpMine: MarketplaceOrder[] = data.results || data;
       setMyMpOrders(allMpMine.filter(o =>
-        ['DELIVERING', 'LIVREUR_CANCELLED'].includes(o.status)
+        ['DELIVERING', 'LIVREUR_CANCELLED', 'DELIVERED'].includes(o.status)
       ));
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } } };
@@ -140,6 +142,8 @@ export default function LivreurDashboard() {
 
   const totalAvailable = availableDelivery.length + needDelivery.length + mpAvailable.length;
   const totalMine = myDeliveries.length + myMpOrders.length;
+  const totalInProgress = myDeliveries.filter(o => o.status !== 'DELIVERED').length
+    + myMpOrders.filter(o => o.status !== 'DELIVERED').length;
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -160,7 +164,7 @@ export default function LivreurDashboard() {
           <p className="text-xs text-orange-500 font-semibold">Disponibles</p>
         </div>
         <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 text-center">
-          <p className="text-2xl font-black text-blue-600">{totalMine}</p>
+          <p className="text-2xl font-black text-blue-600">{totalInProgress}</p>
           <p className="text-xs text-blue-500 font-semibold">En cours</p>
         </div>
         <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
@@ -385,7 +389,7 @@ export default function LivreurDashboard() {
             <div className="text-center py-16 text-warm-500">
               <p className="text-5xl mb-3">📦</p>
               <p className="font-semibold">Aucune livraison en cours</p>
-              <p className="text-sm mt-1 text-warm-400">Acceptez des commandes dans l'onglet "Disponibles"</p>
+              <p className="text-sm mt-1 text-warm-400">Acceptez des commandes dans l&apos;onglet &quot;Disponibles&quot;</p>
             </div>
           )}
         </div>

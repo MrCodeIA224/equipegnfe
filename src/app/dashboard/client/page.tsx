@@ -32,7 +32,7 @@ export default function ClientDashboard() {
       setMpOrders(mp.data.results || mp.data);
     }).catch(() => toast.error('Erreur de chargement.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   const user = getUser();
 

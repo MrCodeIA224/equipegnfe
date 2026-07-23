@@ -12,6 +12,6 @@ export default function DashboardPage() {
     } else {
       router.replace(getDashboardPath(user.role));
     }
-  }, []);
+  }, [router]);
   return null;
 }

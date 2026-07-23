@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useLayoutEffect, ReactNode } from 'react';
 import { User } from '@/types';
 import { getUser, saveUser, saveTokens, clearAuth } from '@/lib/auth';
 
@@ -12,11 +12,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Le serveur n'a pas accès à localStorage : on rend d'abord un état "null" identique
+// des deux côtés, puis on hydrate depuis localStorage avant le premier paint client
+// (useLayoutEffect ne s'exécute jamais côté serveur, d'où le garde typeof window).
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
-    if (typeof window === 'undefined') return null;
-    return getUser();
-  });
+  const [user, setUser] = useState<User | null>(null);
+
+  useIsomorphicLayoutEffect(() => {
+    setUser(getUser());
+  }, []);
 
   const login = useCallback((access: string, refresh: string, userData: User) => {
     saveTokens(access, refresh);

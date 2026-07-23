@@ -14,10 +14,17 @@ import { useRouter } from 'next/navigation';
 export default function CoursierDashboard() {
   const router = useRouter();
   const [openRequests, setOpenRequests] = useState<MarketRequest[]>([]);
+  const [pendingOffers, setPendingOffers] = useState<MarketRequest[]>([]);
   const [myMissions, setMyMissions] = useState<MarketRequest[]>([]);
   const [tab, setTab] = useState<'available' | 'mine'>('available');
   const [loading, setLoading] = useState(true);
   const [offerForm, setOfferForm] = useState<{ requestId: number; message: string; fee: string } | null>(null);
+
+  // Sépare les demandes ouvertes en "je n'ai pas encore proposé" / "j'ai déjà une offre en attente"
+  const splitOpenRequests = (requests: MarketRequest[], userId: number) => {
+    setOpenRequests(requests.filter(r => !r.offers?.some(o => o.coursier_id === userId)));
+    setPendingOffers(requests.filter(r => r.offers?.some(o => o.coursier_id === userId)));
+  };
 
   useEffect(() => {
     const user = getUser();
@@ -27,19 +34,23 @@ export default function CoursierDashboard() {
       marketApi.getOpenRequests(),
       marketApi.getRequests(),
     ]).then(([open, all]) => {
-      setOpenRequests(open.data);
+      splitOpenRequests(open.data, user.id);
       const myAll = (all.data.results || all.data).filter((r: MarketRequest) => r.coursier_id === user.id);
       setMyMissions(myAll);
     }).catch(() => toast.error('Erreur.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   const makeOffer = async (requestId: number, message: string, fee: string) => {
+    const user = getUser();
     try {
       await marketApi.makeOffer(requestId, { message, proposed_fee: parseInt(fee) || 0 });
       toast.success('Offre envoyée !');
       setOfferForm(null);
-      setOpenRequests(prev => prev.filter(r => r.id !== requestId));
+      if (user) {
+        const { data } = await marketApi.getOpenRequests();
+        splitOpenRequests(data, user.id);
+      }
     } catch (err: unknown) {
       const error = err as { response?: { data?: Record<string, string[]> } };
       const msg = error.response?.data ? Object.values(error.response.data)[0] : 'Erreur.';
@@ -82,7 +93,7 @@ export default function CoursierDashboard() {
       </div>
 
       <div className="flex gap-2 mb-6">
-        {[{ id: 'available', l: `Demandes (${openRequests.length})` }, { id: 'mine', l: `Mes missions (${myMissions.length})` }].map(t => (
+        {[{ id: 'available', l: `Demandes (${openRequests.length})` }, { id: 'mine', l: `Mes missions (${myMissions.length + pendingOffers.length})` }].map(t => (
           <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${tab === t.id ? 'bg-green-500 text-white' : 'bg-white border border-warm-200 text-warm-600'}`}>
             {t.l}
@@ -135,7 +146,7 @@ export default function CoursierDashboard() {
                   <div className="flex gap-2">
                     <Button size="sm" className="flex-1 bg-green-500 hover:bg-green-600"
                       onClick={() => makeOffer(req.id, offerForm.message, offerForm.fee)}>
-                      <Send className="w-4 h-4" /> Envoyer l'offre
+                      <Send className="w-4 h-4" /> Envoyer l&apos;offre
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setOfferForm(null)}>Annuler</Button>
                   </div>
@@ -153,12 +164,46 @@ export default function CoursierDashboard() {
 
       {tab === 'mine' && (
         <div className="space-y-3">
-          {myMissions.length === 0 ? (
+          {pendingOffers.length > 0 && (
+            <>
+              <h3 className="font-bold text-warm-700 text-sm">Offres en attente de réponse ({pendingOffers.length})</h3>
+              {pendingOffers.map(req => {
+                const myOffer = req.offers?.find(o => o.coursier_id === getUser()?.id);
+                return (
+                  <Card key={req.id}>
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="font-bold text-warm-900">{req.title}</p>
+                        <p className="text-xs text-warm-500 mt-0.5">🏪 {req.market_name}</p>
+                        <p className="text-xs text-warm-500 flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3" />{req.delivery_address}
+                        </p>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-yellow-100 text-yellow-700 whitespace-nowrap">
+                        En attente de réponse
+                      </span>
+                    </div>
+                    {myOffer && (
+                      <p className="text-xs text-warm-500">
+                        Votre offre : <span className="font-semibold text-warm-700">{formatCurrency(myOffer.proposed_fee)}</span>
+                        {myOffer.message && <> — « {myOffer.message} »</>}
+                      </p>
+                    )}
+                  </Card>
+                );
+              })}
+            </>
+          )}
+
+          {myMissions.length === 0 && pendingOffers.length === 0 ? (
             <div className="text-center py-16 text-warm-500">
               <p className="text-5xl mb-3">📋</p>
               <p className="font-semibold">Aucune mission</p>
             </div>
-          ) : myMissions.map(req => (
+          ) : myMissions.length > 0 && (
+            <>
+              {pendingOffers.length > 0 && <h3 className="font-bold text-warm-700 text-sm mt-4">Mes missions</h3>}
+              {myMissions.map(req => (
             <Card key={req.id}>
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -194,7 +239,9 @@ export default function CoursierDashboard() {
                 )}
               </div>
             </Card>
-          ))}
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>

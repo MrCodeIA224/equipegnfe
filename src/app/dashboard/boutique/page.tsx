@@ -30,7 +30,7 @@ export default function BoutiqueDashboard() {
       setOrders(o.data.results || o.data);
     }).catch(() => toast.error('Erreur.'))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user, router]);
 
   const updateOrderStatus = async (orderId: number, status: string) => {
     try {

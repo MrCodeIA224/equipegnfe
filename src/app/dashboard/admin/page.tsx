@@ -33,6 +33,58 @@ const SECTIONS: { id: Section; label: string; icon: React.ElementType; color: st
   { id: 'commandes_boutiques', label: 'Commandes Boutiques', icon: ShoppingCart,    color: 'text-teal-500'   },
 ];
 
+function AdminSidebar({ activeSection, onSelectSection, authUser }: {
+  activeSection: Section;
+  onSelectSection: (section: Section) => void;
+  authUser: User | null;
+}) {
+  return (
+    <div className="flex flex-col h-full bg-white border-r border-warm-200">
+      <div className="p-5 border-b border-warm-100">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+            <LayoutDashboard className="w-4 h-4 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-sm font-black text-warm-900">Admin</p>
+            <p className="text-xs text-warm-500">GnExpress</p>
+          </div>
+        </div>
+      </div>
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {SECTIONS.map(({ id, label, icon: Icon, color }) => (
+          <button
+            key={id}
+            onClick={() => onSelectSection(id)}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              activeSection === id
+                ? 'bg-primary-50 text-primary-700 border border-primary-200'
+                : 'text-warm-600 hover:bg-warm-50 hover:text-warm-900'
+            }`}
+          >
+            <Icon className={`w-4 h-4 flex-shrink-0 ${activeSection === id ? 'text-primary-500' : color}`} />
+            <span className="flex-1 text-left">{label}</span>
+            {activeSection === id && <ChevronRight className="w-3.5 h-3.5 text-primary-400" />}
+          </button>
+        ))}
+      </nav>
+      <div className="p-4 border-t border-warm-100">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center flex-shrink-0">
+            <span className="text-white text-xs font-bold">
+              {authUser?.first_name?.[0] || 'A'}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-warm-900 truncate">{authUser?.first_name || 'Admin'}</p>
+            <p className="text-xs text-warm-400 truncate">{authUser?.email}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const router = useRouter();
   const { user: authUser } = useAuth();
@@ -160,52 +212,6 @@ export default function AdminDashboard() {
 
   const currentSection = SECTIONS.find(s => s.id === activeSection)!;
 
-  const Sidebar = () => (
-    <div className="flex flex-col h-full bg-white border-r border-warm-200">
-      <div className="p-5 border-b border-warm-100">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-            <LayoutDashboard className="w-4 h-4 text-purple-600" />
-          </div>
-          <div>
-            <p className="text-sm font-black text-warm-900">Admin</p>
-            <p className="text-xs text-warm-500">GnExpress</p>
-          </div>
-        </div>
-      </div>
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {SECTIONS.map(({ id, label, icon: Icon, color }) => (
-          <button
-            key={id}
-            onClick={() => handleSection(id)}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-              activeSection === id
-                ? 'bg-primary-50 text-primary-700 border border-primary-200'
-                : 'text-warm-600 hover:bg-warm-50 hover:text-warm-900'
-            }`}
-          >
-            <Icon className={`w-4 h-4 flex-shrink-0 ${activeSection === id ? 'text-primary-500' : color}`} />
-            <span className="flex-1 text-left">{label}</span>
-            {activeSection === id && <ChevronRight className="w-3.5 h-3.5 text-primary-400" />}
-          </button>
-        ))}
-      </nav>
-      <div className="p-4 border-t border-warm-100">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center flex-shrink-0">
-            <span className="text-white text-xs font-bold">
-              {authUser?.first_name?.[0] || 'A'}
-            </span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-warm-900 truncate">{authUser?.first_name || 'Admin'}</p>
-            <p className="text-xs text-warm-400 truncate">{authUser?.email}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   if (loading) return (
     <div className="flex items-center justify-center h-64">
       <div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" />
@@ -216,14 +222,14 @@ export default function AdminDashboard() {
     <div className="flex h-[calc(100vh-64px)]">
       {/* Sidebar desktop */}
       <div className="hidden lg:flex w-60 flex-col flex-shrink-0">
-        <Sidebar />
+        <AdminSidebar activeSection={activeSection} onSelectSection={handleSection} authUser={authUser} />
       </div>
 
       {/* Sidebar mobile overlay */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div className="w-64 flex flex-col shadow-2xl">
-            <Sidebar />
+            <AdminSidebar activeSection={activeSection} onSelectSection={handleSection} authUser={authUser} />
           </div>
           <div className="flex-1 bg-black/40" onClick={() => setSidebarOpen(false)} />
         </div>

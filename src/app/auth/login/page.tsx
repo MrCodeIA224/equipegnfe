@@ -69,7 +69,7 @@ function LoginForm() {
         </form>
         <p className="mt-4 text-center text-sm text-warm-500">
           Pas encore de compte ?{' '}
-          <Link href="/auth/register" className="text-primary-500 font-semibold hover:underline">S'inscrire</Link>
+          <Link href="/auth/register" className="text-primary-500 font-semibold hover:underline">S&apos;inscrire</Link>
         </p>
         <div className="mt-6 pt-6 border-t border-warm-100">
           <p className="text-xs font-semibold text-warm-400 uppercase tracking-wider mb-3 text-center">
