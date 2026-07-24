@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, MapPin, ShoppingBag, Send } from 'lucide-react';
 import { marketApi, authApi } from '@/lib/api';
 import { MarketItem } from '@/types';
@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AddressSelector from '@/components/checkout/AddressSelector';
 import PromoCodeField from '@/components/checkout/PromoCodeField';
+import { popMarketReorder } from '@/lib/reorder';
 
 const SERVICE_FEE = 10000;
 
@@ -35,6 +36,25 @@ export default function MarchePage() {
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(prev => ({ ...prev, [k]: e.target.value }));
+
+  useEffect(() => {
+    const payload = popMarketReorder();
+    if (!payload) return;
+    // Hydratation depuis sessionStorage (système externe) au montage : un des
+    // deux usages légitimes d'un effect pour setState, pas un anti-pattern.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setForm(prev => ({
+      ...prev,
+      title: payload.title,
+      market_name: payload.market_name,
+      delivery_address: payload.delivery_address,
+      delivery_city: payload.delivery_city,
+      budget: payload.budget ? String(payload.budget) : '',
+      notes: payload.notes,
+    }));
+    setItems(payload.items.map(i => ({ name: i.name, quantity: i.quantity, is_found: false })));
+    toast.success('Votre ancienne liste de courses a été pré-remplie !');
+  }, []);
 
   const addItem = () => setItems(prev => [...prev, { name: '', quantity: '', is_found: false }]);
   const removeItem = (i: number) => setItems(prev => prev.filter((_, idx) => idx !== i));

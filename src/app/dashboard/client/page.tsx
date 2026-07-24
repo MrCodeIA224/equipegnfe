@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Package, ShoppingBag, Store, Clock, ChevronRight, MapPin, MessageCircle } from 'lucide-react';
+import { Package, ShoppingBag, Store, Clock, ChevronRight, MapPin, MessageCircle, RotateCcw } from 'lucide-react';
 import { deliveryApi, marketApi, marketplaceApi } from '@/lib/api';
 import { DeliveryOrder, MarketRequest, MarketplaceOrder } from '@/types';
 import { formatCurrency, formatDate, ORDER_STATUS_COLORS } from '@/lib/utils';
@@ -8,10 +8,14 @@ import { Card } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import OrderTrackingPanel from '@/components/tracking/OrderTrackingPanel';
 import ChatPanel from '@/components/chat/ChatPanel';
+import { stashDeliveryReorder, stashMarketReorder } from '@/lib/reorder';
 import Link from 'next/link';
 import { getUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+
+const REORDERABLE_DELIVERY_STATUSES = ['DELIVERED', 'CANCELLED', 'LIVREUR_CANCELLED'];
+const REORDERABLE_MARKET_STATUSES = ['COMPLETED', 'CANCELLED'];
 
 export default function ClientDashboard() {
   const router = useRouter();
@@ -23,6 +27,29 @@ export default function ClientDashboard() {
   const [openPanelKey, setOpenPanelKey] = useState<string | null>(null);
 
   const togglePanel = (key: string) => setOpenPanelKey(prev => (prev === key ? null : key));
+
+  const reorderDelivery = (order: DeliveryOrder) => {
+    stashDeliveryReorder({
+      restaurantId: order.restaurant,
+      items: order.order_items.map(oi => ({ menu_item_id: oi.menu_item, quantity: oi.quantity })),
+      delivery_address: order.delivery_address,
+      delivery_city: order.delivery_city,
+    });
+    router.push('/delivery');
+  };
+
+  const reorderMarket = (req: MarketRequest) => {
+    stashMarketReorder({
+      title: req.title,
+      market_name: req.market_name,
+      delivery_address: req.delivery_address,
+      delivery_city: req.delivery_city,
+      budget: req.budget,
+      notes: req.notes,
+      items: req.items.map(i => ({ name: i.name, quantity: i.quantity })),
+    });
+    router.push('/marche');
+  };
 
   useEffect(() => {
     const user = getUser();
@@ -117,16 +144,23 @@ export default function ClientDashboard() {
                 </div>
                 <p className="text-base font-black text-primary-500">{formatCurrency(order.total_price)}</p>
               </div>
-              {order.livreur_id && (
+              {(order.livreur_id || REORDERABLE_DELIVERY_STATUSES.includes(order.status)) && (
                 <div className="flex gap-2 mt-3 flex-wrap">
-                  {['PICKED_UP', 'DELIVERING'].includes(order.status) && (
+                  {order.livreur_id && ['PICKED_UP', 'DELIVERING'].includes(order.status) && (
                     <Button size="sm" variant="ghost" onClick={() => togglePanel(`track-delivery-${order.id}`)}>
                       <MapPin className="w-4 h-4" /> Suivre la livraison
                     </Button>
                   )}
-                  <Button size="sm" variant="ghost" onClick={() => togglePanel(`chat-delivery-${order.id}`)}>
-                    <MessageCircle className="w-4 h-4" /> Chat
-                  </Button>
+                  {order.livreur_id && (
+                    <Button size="sm" variant="ghost" onClick={() => togglePanel(`chat-delivery-${order.id}`)}>
+                      <MessageCircle className="w-4 h-4" /> Chat
+                    </Button>
+                  )}
+                  {REORDERABLE_DELIVERY_STATUSES.includes(order.status) && (
+                    <Button size="sm" variant="ghost" onClick={() => reorderDelivery(order)}>
+                      <RotateCcw className="w-4 h-4" /> Recommander
+                    </Button>
+                  )}
                 </div>
               )}
               {openPanelKey === `track-delivery-${order.id}` && (
@@ -185,16 +219,23 @@ export default function ClientDashboard() {
                     </div>
                   )}
                 </div>
-                {req.coursier_id && (
+                {(req.coursier_id || REORDERABLE_MARKET_STATUSES.includes(req.status)) && (
                   <div className="flex gap-2 mt-3 flex-wrap">
-                    {req.livreur_id && req.status === 'DELIVERING' && (
+                    {req.coursier_id && req.livreur_id && req.status === 'DELIVERING' && (
                       <Button size="sm" variant="ghost" onClick={() => togglePanel(`track-market-${req.id}`)}>
                         <MapPin className="w-4 h-4" /> Suivre la livraison
                       </Button>
                     )}
-                    <Button size="sm" variant="ghost" onClick={() => togglePanel(`chat-market-${req.id}`)}>
-                      <MessageCircle className="w-4 h-4" /> Chat
-                    </Button>
+                    {req.coursier_id && (
+                      <Button size="sm" variant="ghost" onClick={() => togglePanel(`chat-market-${req.id}`)}>
+                        <MessageCircle className="w-4 h-4" /> Chat
+                      </Button>
+                    )}
+                    {REORDERABLE_MARKET_STATUSES.includes(req.status) && (
+                      <Button size="sm" variant="ghost" onClick={() => reorderMarket(req)}>
+                        <RotateCcw className="w-4 h-4" /> Recommander
+                      </Button>
+                    )}
                   </div>
                 )}
                 {openPanelKey === `track-market-${req.id}` && (

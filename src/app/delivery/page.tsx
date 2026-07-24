@@ -17,6 +17,7 @@ import AddressSelector from '@/components/checkout/AddressSelector';
 import PromoCodeField from '@/components/checkout/PromoCodeField';
 import PaymentMethodSelector from '@/components/checkout/PaymentMethodSelector';
 import PaymentStep from '@/components/checkout/PaymentStep';
+import { popDeliveryReorder } from '@/lib/reorder';
 
 const PROVIDER_LABELS: Record<PaymentMethod, string> = {
   CASH_ON_DELIVERY: 'à la livraison',
@@ -50,6 +51,50 @@ export default function DeliveryPage() {
       .then(r => setRestaurants(r.data.results || r.data))
       .finally(() => setLoading(false));
   }, [city]);
+
+  useEffect(() => {
+    const payload = popDeliveryReorder();
+    if (!payload) return;
+
+    (async () => {
+      try {
+        const [{ data: restaurant }, { data: menu }] = await Promise.all([
+          deliveryApi.getRestaurant(payload.restaurantId),
+          deliveryApi.getRestaurantMenu(payload.restaurantId),
+        ]);
+        setSelectedRestaurant(restaurant);
+        setMenuByCategory(menu);
+
+        const allItems: MenuItem[] = menu.flatMap((group: { items: MenuItem[] }) => group.items);
+        const skipped: string[] = [];
+        const newCart: CartItem[] = [];
+        payload.items.forEach(stashedItem => {
+          const menuItem = allItems.find(m => m.id === stashedItem.menu_item_id);
+          if (!menuItem || !menuItem.is_available) {
+            skipped.push(menuItem?.name || `Article #${stashedItem.menu_item_id}`);
+            return;
+          }
+          newCart.push({
+            id: menuItem.id, name: menuItem.name, price: menuItem.price,
+            quantity: stashedItem.quantity, restaurantId: restaurant.id,
+          });
+        });
+
+        setCart(newCart);
+        setDeliveryAddress(payload.delivery_address);
+        setDeliveryCity(payload.delivery_city);
+        if (newCart.length > 0) {
+          setShowOrder(true);
+          toast.success('Panier recommandé ! Vérifiez votre commande avant de valider.');
+        }
+        if (skipped.length > 0) {
+          toast.error(`Plus disponible : ${skipped.join(', ')}`);
+        }
+      } catch {
+        toast.error('Impossible de recommander cette commande.');
+      }
+    })();
+  }, []);
 
   const selectRestaurant = async (r: Restaurant) => {
     setSelectedRestaurant(r);
