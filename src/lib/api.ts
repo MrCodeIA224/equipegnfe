@@ -66,6 +66,28 @@ export const authApi = {
 };
 
 // ======================================
+// Adresses sauvegardées
+// ======================================
+export const addressApi = {
+  list: () => api.get('/auth/addresses/'),
+  create: (data: Record<string, unknown>) => api.post('/auth/addresses/', data),
+  update: (id: number, data: Record<string, unknown>) => api.patch(`/auth/addresses/${id}/`, data),
+  remove: (id: number) => api.delete(`/auth/addresses/${id}/`),
+};
+
+// ======================================
+// Codes promo
+// ======================================
+export const promoApi = {
+  validate: (data: { code: string; order_type: string; subtotal: number }) =>
+    api.post('/auth/promo-codes/validate/', data),
+  adminList: () => api.get('/auth/admin/promo-codes/'),
+  adminCreate: (data: Record<string, unknown>) => api.post('/auth/admin/promo-codes/', data),
+  adminToggleActive: (id: number) => api.post(`/auth/admin/promo-codes/${id}/toggle_active/`),
+  adminRedemptions: () => api.get('/auth/admin/promo-redemptions/'),
+};
+
+// ======================================
 // Delivery
 // ======================================
 export const deliveryApi = {
@@ -101,6 +123,11 @@ export const deliveryApi = {
   cancelDelivery: (orderId: number) => api.post(`/delivery/orders/${orderId}/cancel_delivery/`),
   adminAllOrders: () => api.get('/delivery/orders/admin_all/'),
   getAdminStats: () => api.get('/delivery/admin/stats/'),
+
+  initiatePayment: (orderId: number, data: { phone_number: string }) =>
+    api.post(`/delivery/orders/${orderId}/payment/initiate/`, data),
+  confirmPayment: (orderId: number, data: { reference: string; otp_code: string }) =>
+    api.post(`/delivery/orders/${orderId}/payment/confirm/`, data),
 };
 
 // ======================================
@@ -162,4 +189,9 @@ export const marketplaceApi = {
   getAvailableForDelivery: () => api.get('/marketplace/orders/available_for_delivery/'),
   cancelDelivery: (orderId: number) => api.post(`/marketplace/orders/${orderId}/cancel_delivery/`),
   getAdminStats: () => api.get('/marketplace/admin/stats/'),
+
+  initiatePayment: (orderId: number, data: { phone_number: string }) =>
+    api.post(`/marketplace/orders/${orderId}/payment/initiate/`, data),
+  confirmPayment: (orderId: number, data: { reference: string; otp_code: string }) =>
+    api.post(`/marketplace/orders/${orderId}/payment/confirm/`, data),
 };

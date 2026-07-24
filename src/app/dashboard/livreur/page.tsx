@@ -9,6 +9,7 @@ import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { usePolling } from '@/hooks/usePolling';
 
 export default function LivreurDashboard() {
   const router = useRouter();
@@ -21,8 +22,8 @@ export default function LivreurDashboard() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'available' | 'mine'>('available');
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [avail, mine, needDel, mpAvail, mpMine] = await Promise.all([
         deliveryApi.getAvailableOrders(),
@@ -45,9 +46,9 @@ export default function LivreurDashboard() {
         ['DELIVERING', 'LIVREUR_CANCELLED', 'DELIVERED'].includes(o.status)
       ));
     } catch {
-      toast.error('Erreur de chargement.');
+      if (!silent) toast.error('Erreur de chargement.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
@@ -58,6 +59,9 @@ export default function LivreurDashboard() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [user, loadData, router]);
+
+  // Auto-refresh silencieux (sans écran de chargement) toutes les 15s.
+  usePolling(() => loadData(true), 15000, !!user && user.role === 'LIVREUR');
 
   const acceptDelivery = async (orderId: number) => {
     try {
@@ -152,7 +156,7 @@ export default function LivreurDashboard() {
           <h1 className="text-2xl font-black text-warm-900">Dashboard Livreur</h1>
           <p className="text-warm-500 text-sm">Bienvenue, {user?.first_name}</p>
         </div>
-        <button onClick={loadData} className="flex items-center gap-1.5 text-xs font-semibold text-warm-500 hover:text-warm-800 px-3 py-2 rounded-xl hover:bg-warm-100 transition-colors">
+        <button onClick={() => loadData()} className="flex items-center gap-1.5 text-xs font-semibold text-warm-500 hover:text-warm-800 px-3 py-2 rounded-xl hover:bg-warm-100 transition-colors">
           <RefreshCw className="w-3.5 h-3.5" /> Actualiser
         </button>
       </div>

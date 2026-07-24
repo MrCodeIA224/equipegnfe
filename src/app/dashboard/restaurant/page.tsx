@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Plus, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
 import { deliveryApi } from '@/lib/api';
 import { Restaurant, MenuItem, DeliveryOrder } from '@/types';
@@ -10,6 +10,7 @@ import Input from '@/components/ui/Input';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { usePolling } from '@/hooks/usePolling';
 
 export default function RestaurantDashboard() {
   const router = useRouter();
@@ -20,22 +21,37 @@ export default function RestaurantDashboard() {
   const [tab, setTab] = useState<'orders' | 'menu' | 'create'>('orders');
   const [loading, setLoading] = useState(true);
 
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const [r, o] = await Promise.all([
+        deliveryApi.getRestaurants(),
+        deliveryApi.getOrders(),
+      ]);
+      const myRestaurants = r.data.results || r.data;
+      setRestaurants(myRestaurants);
+      // Conserve la sélection courante (par id) au lieu de toujours revenir au
+      // 1er restaurant : un refresh silencieux ne doit pas changer l'onglet actif.
+      setSelectedRestaurant(prev => {
+        if (prev) return myRestaurants.find((rest: Restaurant) => rest.id === prev.id) ?? myRestaurants[0] ?? null;
+        return myRestaurants.length > 0 ? myRestaurants[0] : null;
+      });
+      setOrders(o.data.results || o.data);
+    } catch {
+      if (!silent) toast.error('Erreur de chargement.');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!user || user.role !== 'RESTAURANT') { router.push('/auth/login'); return; }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData();
+  }, [user, router, loadData]);
 
-    Promise.all([
-      deliveryApi.getRestaurants(),
-      deliveryApi.getOrders(),
-    ]).then(([r, o]) => {
-      const myRestaurants = (r.data.results || r.data).filter((rest: Restaurant) => {
-        return true; // On affiche tout côté front (le back filtre)
-      });
-      setRestaurants(myRestaurants);
-      if (myRestaurants.length > 0) setSelectedRestaurant(myRestaurants[0]);
-      setOrders(o.data.results || o.data);
-    }).catch(() => toast.error('Erreur de chargement.'))
-      .finally(() => setLoading(false));
-  }, [user, router]);
+  // Auto-refresh silencieux (sans écran de chargement) toutes les 15s.
+  usePolling(() => loadData(true), 15000, !!user && user.role === 'RESTAURANT');
 
   const toggleOpen = async (restaurantId: number) => {
     try {

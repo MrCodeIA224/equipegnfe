@@ -2,16 +2,28 @@
 import { useState, useEffect } from 'react';
 import { Search, Star, Clock, MapPin, Filter, Truck, X, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { deliveryApi } from '@/lib/api';
-import { Restaurant, MenuItem, CartItem } from '@/types';
+import { Restaurant, MenuItem, CartItem, PaymentMethod } from '@/types';
 import { formatCurrency, truncate } from '@/lib/utils';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import toast from 'react-hot-toast';
 import { getUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { useCity } from '@/context/CityContext';
+import AddressSelector from '@/components/checkout/AddressSelector';
+import PromoCodeField from '@/components/checkout/PromoCodeField';
+import PaymentMethodSelector from '@/components/checkout/PaymentMethodSelector';
+import PaymentStep from '@/components/checkout/PaymentStep';
+
+const PROVIDER_LABELS: Record<PaymentMethod, string> = {
+  CASH_ON_DELIVERY: 'à la livraison',
+  ORANGE_MONEY: 'Orange Money',
+  MTN_MOMO: 'MTN Mobile Money',
+};
 
 export default function DeliveryPage() {
   const router = useRouter();
+  const { city } = useCity();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [menuByCategory, setMenuByCategory] = useState<{ category: { id: number | null; name: string; icon: string }; items: MenuItem[] }[]>([]);
@@ -20,13 +32,21 @@ export default function DeliveryPage() {
   const [search, setSearch] = useState('');
   const [orderLoading, setOrderLoading] = useState(false);
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryCity, setDeliveryCity] = useState('Conakry');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH_ON_DELIVERY');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [discountAmount, setDiscountAmount] = useState(0);
   const [showOrder, setShowOrder] = useState(false);
+  const [paymentOrderId, setPaymentOrderId] = useState<number | null>(null);
 
   useEffect(() => {
-    deliveryApi.getRestaurants()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
+    deliveryApi.getRestaurants({ city })
       .then(r => setRestaurants(r.data.results || r.data))
       .finally(() => setLoading(false));
-  }, []);
+  }, [city]);
 
   const selectRestaurant = async (r: Restaurant) => {
     setSelectedRestaurant(r);
@@ -63,18 +83,30 @@ export default function DeliveryPage() {
     if (!user) { router.push('/auth/login?redirect=/delivery'); return; }
     if (!deliveryAddress.trim()) { toast.error('Veuillez indiquer votre adresse de livraison.'); return; }
     if (!selectedRestaurant) return;
+    if (paymentMethod !== 'CASH_ON_DELIVERY' && !phoneNumber.trim()) {
+      toast.error('Numéro de téléphone requis pour ce mode de paiement.');
+      return;
+    }
 
     setOrderLoading(true);
     try {
-      await deliveryApi.createOrder({
+      const { data: order } = await deliveryApi.createOrder({
         restaurant_id: selectedRestaurant.id,
         delivery_address: deliveryAddress,
+        delivery_city: deliveryCity,
         items: cart.map(c => ({ menu_item_id: c.id, quantity: c.quantity })),
+        payment_method: paymentMethod,
+        phone_number: phoneNumber,
+        promo_code: promoCode,
       });
       toast.success('Commande passée avec succès !');
       setCart([]);
       setShowOrder(false);
-      router.push('/dashboard/client');
+      if (paymentMethod !== 'CASH_ON_DELIVERY') {
+        setPaymentOrderId(order.id);
+      } else {
+        router.push('/dashboard/client');
+      }
     } catch (err: unknown) {
       const error = err as { response?: { data?: Record<string, string[]> } };
       const msg = error.response?.data ? Object.values(error.response.data)[0] : 'Erreur lors de la commande.';
@@ -267,23 +299,59 @@ export default function DeliveryPage() {
               <span className="text-warm-500">Livraison</span>
               <span>{formatCurrency(selectedRestaurant?.delivery_fee || 0)}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-sm mb-3 text-green-600">
+                <span>Réduction</span>
+                <span>-{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold mb-5">
               <span>Total</span>
-              <span className="text-primary-500">{formatCurrency(cartTotal + Number(selectedRestaurant?.delivery_fee || 0))}</span>
+              <span className="text-primary-500">
+                {formatCurrency(cartTotal + Number(selectedRestaurant?.delivery_fee || 0) - discountAmount)}
+              </span>
             </div>
 
-            <Input
-              label="Adresse de livraison"
-              placeholder="Votre adresse complète..."
-              value={deliveryAddress}
-              onChange={e => setDeliveryAddress(e.target.value)}
-              icon={<MapPin className="w-4 h-4" />}
-            />
+            <div className="space-y-4">
+              <AddressSelector
+                value={deliveryAddress}
+                city={deliveryCity}
+                onChange={(addr, c) => { setDeliveryAddress(addr); setDeliveryCity(c); }}
+              />
+
+              <PromoCodeField
+                orderType="DELIVERY"
+                subtotal={cartTotal}
+                onApplied={(codeVal, discount) => { setPromoCode(codeVal); setDiscountAmount(discount); }}
+                onCleared={() => { setPromoCode(''); setDiscountAmount(0); }}
+              />
+
+              <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} />
+
+              {paymentMethod !== 'CASH_ON_DELIVERY' && (
+                <Input
+                  placeholder="Numéro de téléphone (+224 6XX XX XX XX)"
+                  value={phoneNumber}
+                  onChange={e => setPhoneNumber(e.target.value)}
+                />
+              )}
+            </div>
+
             <Button onClick={placeOrder} loading={orderLoading} className="w-full mt-4" size="lg">
               Passer la commande
             </Button>
           </div>
         </div>
+      )}
+
+      {paymentOrderId && (
+        <PaymentStep
+          orderId={paymentOrderId}
+          orderType="delivery"
+          providerLabel={PROVIDER_LABELS[paymentMethod]}
+          onDone={() => { setPaymentOrderId(null); router.push('/dashboard/client'); }}
+          onClose={() => { setPaymentOrderId(null); router.push('/dashboard/client'); }}
+        />
       )}
     </div>
   );

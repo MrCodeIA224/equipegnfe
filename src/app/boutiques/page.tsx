@@ -2,16 +2,28 @@
 import { useState, useEffect } from 'react';
 import { Search, Star, ShoppingBag, Filter, Plus, Minus, ShoppingCart, MapPin, Phone, X } from 'lucide-react';
 import { marketplaceApi } from '@/lib/api';
-import { Category, Shop, Product, CartItem } from '@/types';
+import { Category, Shop, Product, CartItem, PaymentMethod } from '@/types';
 import { formatCurrency, truncate } from '@/lib/utils';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import toast from 'react-hot-toast';
 import { getUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { useCity } from '@/context/CityContext';
+import AddressSelector from '@/components/checkout/AddressSelector';
+import PromoCodeField from '@/components/checkout/PromoCodeField';
+import PaymentMethodSelector from '@/components/checkout/PaymentMethodSelector';
+import PaymentStep from '@/components/checkout/PaymentStep';
+
+const PROVIDER_LABELS: Record<PaymentMethod, string> = {
+  CASH_ON_DELIVERY: 'à la livraison',
+  ORANGE_MONEY: 'Orange Money',
+  MTN_MOMO: 'MTN Mobile Money',
+};
 
 export default function BoutiquesPage() {
   const router = useRouter();
+  const { city } = useCity();
   const [categories, setCategories] = useState<Category[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -24,21 +36,30 @@ export default function BoutiquesPage() {
   const [showOrder, setShowOrder] = useState(false);
   const [deliveryType, setDeliveryType] = useState<'DELIVERY' | 'PICKUP'>('DELIVERY');
   const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [deliveryCity, setDeliveryCity] = useState('Conakry');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH_ON_DELIVERY');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [discountAmount, setDiscountAmount] = useState(0);
   const [orderLoading, setOrderLoading] = useState(false);
+  const [paymentOrderId, setPaymentOrderId] = useState<number | null>(null);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setLoading(true);
     Promise.all([
       marketplaceApi.getCategories(),
-      marketplaceApi.getShops(),
+      marketplaceApi.getShops({ city }),
     ]).then(([cats, shps]) => {
       setCategories(cats.data.results || cats.data);
       setShops(shps.data.results || shps.data);
     }).finally(() => setLoading(false));
-  }, []);
+  }, [city]);
 
   const filterShops = async (categoryId: number | null) => {
     setSelectedCategory(categoryId);
-    const params: Record<string, string> = categoryId ? { category: String(categoryId) } : {};
+    const params: Record<string, string> = { city };
+    if (categoryId) params.category = String(categoryId);
     const { data } = await marketplaceApi.getShops(params);
     setShops(data.results || data);
   };
@@ -82,18 +103,30 @@ export default function BoutiquesPage() {
       return;
     }
     if (!selectedShop) return;
+    if (paymentMethod !== 'CASH_ON_DELIVERY' && !phoneNumber.trim()) {
+      toast.error('Numéro de téléphone requis pour ce mode de paiement.');
+      return;
+    }
     setOrderLoading(true);
     try {
-      await marketplaceApi.createOrder({
+      const { data: order } = await marketplaceApi.createOrder({
         shop_id: selectedShop.id,
         delivery_type: deliveryType,
         delivery_address: deliveryAddress,
+        delivery_city: deliveryCity,
         items: cart.map(c => ({ product_id: c.id, quantity: c.quantity })),
+        payment_method: paymentMethod,
+        phone_number: phoneNumber,
+        promo_code: promoCode,
       });
       toast.success('Commande passée avec succès !');
       setCart([]);
       setShowOrder(false);
-      router.push('/dashboard/client');
+      if (paymentMethod !== 'CASH_ON_DELIVERY') {
+        setPaymentOrderId(order.id);
+      } else {
+        router.push('/dashboard/client');
+      }
     } catch (err: unknown) {
       const error = err as { response?: { data?: Record<string, string[]> } };
       const msg = error.response?.data ? Object.values(error.response.data)[0] : 'Erreur.';
@@ -295,13 +328,49 @@ export default function BoutiquesPage() {
             </div>
 
             {deliveryType === 'DELIVERY' && (
-              <Input label="Adresse de livraison" placeholder="Votre adresse..." value={deliveryAddress}
-                onChange={e => setDeliveryAddress(e.target.value)} icon={<MapPin className="w-4 h-4" />} />
+              <div className="mb-4">
+                <AddressSelector
+                  value={deliveryAddress}
+                  city={deliveryCity}
+                  onChange={(addr, c) => { setDeliveryAddress(addr); setDeliveryCity(c); }}
+                />
+              </div>
             )}
 
-            <div className="flex justify-between font-bold mt-4 mb-5">
+            <div className="mb-4">
+              <PromoCodeField
+                orderType="MARKETPLACE"
+                subtotal={cartTotal}
+                onApplied={(codeVal, discount) => { setPromoCode(codeVal); setDiscountAmount(discount); }}
+                onCleared={() => { setPromoCode(''); setDiscountAmount(0); }}
+              />
+            </div>
+
+            <div className="mb-4">
+              <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} />
+            </div>
+
+            {paymentMethod !== 'CASH_ON_DELIVERY' && (
+              <Input
+                placeholder="Numéro de téléphone (+224 6XX XX XX XX)"
+                value={phoneNumber}
+                onChange={e => setPhoneNumber(e.target.value)}
+                className="mb-4"
+              />
+            )}
+
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-sm mb-2 text-green-600">
+                <span>Réduction</span>
+                <span>-{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between font-bold mt-2 mb-5">
               <span>Total</span>
-              <span className="text-primary-500">{formatCurrency(cartTotal + (deliveryType === 'DELIVERY' ? Number(selectedShop?.delivery_fee || 0) : 0))}</span>
+              <span className="text-primary-500">
+                {formatCurrency(cartTotal + (deliveryType === 'DELIVERY' ? Number(selectedShop?.delivery_fee || 0) : 0) - discountAmount)}
+              </span>
             </div>
 
             <Button onClick={placeOrder} loading={orderLoading} className="w-full" size="lg">
@@ -309,6 +378,16 @@ export default function BoutiquesPage() {
             </Button>
           </div>
         </div>
+      )}
+
+      {paymentOrderId && (
+        <PaymentStep
+          orderId={paymentOrderId}
+          orderType="marketplace"
+          providerLabel={PROVIDER_LABELS[paymentMethod]}
+          onDone={() => { setPaymentOrderId(null); router.push('/dashboard/client'); }}
+          onClose={() => { setPaymentOrderId(null); router.push('/dashboard/client'); }}
+        />
       )}
     </div>
   );

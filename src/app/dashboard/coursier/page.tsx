@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MapPin, Clock, CheckCircle, Send } from 'lucide-react';
 import { marketApi, authApi } from '@/lib/api';
 import { MarketRequest } from '@/types';
@@ -10,6 +10,7 @@ import Input from '@/components/ui/Input';
 import toast from 'react-hot-toast';
 import { getUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
+import { usePolling } from '@/hooks/usePolling';
 
 export default function CoursierDashboard() {
   const router = useRouter();
@@ -26,20 +27,34 @@ export default function CoursierDashboard() {
     setPendingOffers(requests.filter(r => r.offers?.some(o => o.coursier_id === userId)));
   };
 
-  useEffect(() => {
+  const loadData = useCallback(async (silent = false) => {
     const user = getUser();
-    if (!user || user.role !== 'COURSIER') { router.push('/auth/login'); return; }
-
-    Promise.all([
-      marketApi.getOpenRequests(),
-      marketApi.getRequests(),
-    ]).then(([open, all]) => {
+    if (!user) return;
+    if (!silent) setLoading(true);
+    try {
+      const [open, all] = await Promise.all([
+        marketApi.getOpenRequests(),
+        marketApi.getRequests(),
+      ]);
       splitOpenRequests(open.data, user.id);
       const myAll = (all.data.results || all.data).filter((r: MarketRequest) => r.coursier_id === user.id);
       setMyMissions(myAll);
-    }).catch(() => toast.error('Erreur.'))
-      .finally(() => setLoading(false));
-  }, [router]);
+    } catch {
+      if (!silent) toast.error('Erreur.');
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const user = getUser();
+    if (!user || user.role !== 'COURSIER') { router.push('/auth/login'); return; }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData();
+  }, [router, loadData]);
+
+  // Auto-refresh silencieux (sans écran de chargement) toutes les 15s.
+  usePolling(() => loadData(true), 15000);
 
   const makeOffer = async (requestId: number, message: string, fee: string) => {
     const user = getUser();

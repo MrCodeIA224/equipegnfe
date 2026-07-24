@@ -2,16 +2,18 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Menu, X, ShoppingBag, Truck, ShoppingCart, User, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, X, ShoppingBag, Truck, ShoppingCart, User, LogOut, ChevronDown, MapPin } from 'lucide-react';
 import { getDashboardPath, ROLE_LABELS, ROLE_COLORS } from '@/lib/auth';
 import { authApi } from '@/lib/api';
 import Cookies from 'js-cookie';
-import { cn } from '@/lib/utils';
+import { cn, GUINEA_CITIES } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { useCity } from '@/context/CityContext';
 
 export default function Navbar() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { city, setCity } = useCity();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
 
@@ -49,6 +51,19 @@ export default function Navbar() {
 
           {/* Desktop Nav */}
           <div className="hidden md:flex items-center gap-1">
+            <div className="flex items-center gap-1.5 px-2 py-2 rounded-xl text-sm font-semibold text-warm-700">
+              <MapPin className="w-4 h-4 text-warm-400" />
+              <select
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                className="bg-transparent focus:outline-none cursor-pointer"
+                aria-label="Choisir une ville"
+              >
+                {GUINEA_CITIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
             {navLinks.map(({ href, label, icon: Icon, color }) => (
               <Link
                 key={href}
@@ -137,6 +152,19 @@ export default function Navbar() {
       {/* Mobile Menu */}
       {mobileOpen && (
         <div className="md:hidden bg-white border-t border-warm-200 px-4 py-4 animate-fade-in">
+          <div className="flex items-center gap-1.5 px-4 py-2 mb-1 rounded-xl text-sm font-semibold text-warm-700 bg-warm-50">
+            <MapPin className="w-4 h-4 text-warm-400" />
+            <select
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              className="bg-transparent focus:outline-none cursor-pointer w-full"
+              aria-label="Choisir une ville"
+            >
+              {GUINEA_CITIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex flex-col gap-1">
             {navLinks.map(({ href, label, icon: Icon, color }) => (
               <Link

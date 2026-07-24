@@ -30,6 +30,45 @@ export interface AuthState {
   isAuthenticated: boolean;
 }
 
+// Adresses sauvegardées
+export interface Address {
+  id: number;
+  label: string;
+  full_address: string;
+  city: string;
+  is_default: boolean;
+  created_at: string;
+}
+
+// Paiement Mobile Money (simulé)
+export type PaymentMethod = 'ORANGE_MONEY' | 'MTN_MOMO' | 'CASH_ON_DELIVERY';
+export type PaymentStatus = 'PENDING' | 'CONFIRMED' | 'FAILED';
+
+export interface Payment {
+  method: PaymentMethod;
+  method_display: string;
+  status: PaymentStatus;
+  status_display: string;
+  phone_number: string;
+  transaction_reference: string;
+  confirmed_at?: string;
+}
+
+// Codes promo
+export interface PromoCode {
+  id: number;
+  code: string;
+  discount_type: 'PERCENTAGE' | 'FIXED';
+  value: number;
+  min_order_amount: number;
+  usage_limit?: number;
+  times_used: number;
+  expiry_date?: string;
+  applicable_order_types: string[];
+  is_active: boolean;
+  created_at: string;
+}
+
 // Delivery
 export interface Restaurant {
   id: number;
@@ -89,9 +128,12 @@ export interface DeliveryOrder {
   notes: string;
   items_total: number;
   delivery_fee: number;
+  promo_code_used?: string;
+  discount_amount?: number;
   total_price: number;
   created_at: string;
   order_items: DeliveryOrderItem[];
+  payment?: Payment;
 }
 
 export interface DeliveryOrderItem {
@@ -127,6 +169,8 @@ export interface MarketRequest {
   is_delivery_needed: boolean;
   service_fee: number;
   delivery_fee: number;
+  promo_code_used?: string;
+  discount_amount?: number;
   actual_total: number;
   created_at: string;
   completed_at?: string;
@@ -233,9 +277,12 @@ export interface MarketplaceOrder {
   notes: string;
   items_total: number;
   delivery_fee: number;
+  promo_code_used?: string;
+  discount_amount?: number;
   total_price: number;
   created_at: string;
   order_items: MarketplaceOrderItem[];
+  payment?: Payment;
 }
 
 export interface MarketplaceOrderItem {

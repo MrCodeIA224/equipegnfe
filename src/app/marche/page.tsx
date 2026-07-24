@@ -10,6 +10,10 @@ import toast from 'react-hot-toast';
 import { getUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AddressSelector from '@/components/checkout/AddressSelector';
+import PromoCodeField from '@/components/checkout/PromoCodeField';
+
+const SERVICE_FEE = 10000;
 
 export default function MarchePage() {
   const router = useRouter();
@@ -24,6 +28,8 @@ export default function MarchePage() {
     is_delivery_needed: true,
   });
   const [items, setItems] = useState<MarketItem[]>([{ name: '', quantity: '', is_found: false }]);
+  const [promoCode, setPromoCode] = useState('');
+  const [discountAmount, setDiscountAmount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -50,6 +56,7 @@ export default function MarchePage() {
         ...form,
         budget: form.budget ? parseInt(form.budget) : 0,
         items: validItems,
+        promo_code: promoCode,
       });
       setSuccess(true);
       toast.success('Demande de courses créée ! Des coursiers vont répondre.');
@@ -138,8 +145,11 @@ export default function MarchePage() {
             </div>
           </div>
 
-          <Input label="Adresse de livraison" placeholder="Votre adresse complète..."
-            value={form.delivery_address} onChange={set('delivery_address')} icon={<MapPin className="w-4 h-4" />} />
+          <AddressSelector
+            value={form.delivery_address}
+            city={form.delivery_city}
+            onChange={(addr, c) => setForm(prev => ({ ...prev, delivery_address: addr, delivery_city: c }))}
+          />
 
           <Input label="Budget estimé (optionnel)" type="number" placeholder="Ex: 200000"
             value={form.budget} onChange={set('budget')} />
@@ -185,11 +195,26 @@ export default function MarchePage() {
             ))}
           </div>
 
+          <div className="mb-5">
+            <PromoCodeField
+              orderType="MARKET"
+              subtotal={SERVICE_FEE}
+              onApplied={(codeVal, discount) => { setPromoCode(codeVal); setDiscountAmount(discount); }}
+              onCleared={() => { setPromoCode(''); setDiscountAmount(0); }}
+            />
+          </div>
+
           <div className="bg-warm-50 rounded-xl p-4 mb-5 text-sm">
             <div className="flex justify-between mb-1">
               <span className="text-warm-600">Frais de service estimés</span>
-              <span className="font-semibold">10 000 GNF</span>
+              <span className="font-semibold">{formatCurrency(SERVICE_FEE)}</span>
             </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between mb-1 text-green-600">
+                <span>Réduction</span>
+                <span>-{formatCurrency(discountAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-warm-600">Livraison (variable)</span>
               <span className="font-semibold text-warm-400">Selon livreur</span>

@@ -3,13 +3,14 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard, Users, UtensilsCrossed, Truck, ShoppingBag,
   Store, ShoppingCart, CheckCircle, XCircle, Menu, X,
-  RefreshCw, TrendingUp, Package, ChevronRight,
+  RefreshCw, TrendingUp, Package, ChevronRight, Tag,
 } from 'lucide-react';
-import { authApi, deliveryApi, marketApi, marketplaceApi } from '@/lib/api';
-import { User, DeliveryOrder, MarketRequest, MarketplaceOrder, Restaurant, Shop } from '@/types';
+import { authApi, deliveryApi, marketApi, marketplaceApi, promoApi } from '@/lib/api';
+import { User, DeliveryOrder, MarketRequest, MarketplaceOrder, Restaurant, Shop, PromoCode } from '@/types';
 import { formatCurrency, formatDate, ORDER_STATUS_COLORS } from '@/lib/utils';
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -21,7 +22,8 @@ type Section =
   | 'commandes_livraison'
   | 'courses_marche'
   | 'boutiques'
-  | 'commandes_boutiques';
+  | 'commandes_boutiques'
+  | 'codes_promo';
 
 const SECTIONS: { id: Section; label: string; icon: React.ElementType; color: string }[] = [
   { id: 'apercu',              label: 'Vue d\'ensemble',     icon: LayoutDashboard, color: 'text-purple-500' },
@@ -31,6 +33,7 @@ const SECTIONS: { id: Section; label: string; icon: React.ElementType; color: st
   { id: 'courses_marche',      label: 'Courses Marché',      icon: ShoppingBag,     color: 'text-green-500'  },
   { id: 'boutiques',           label: 'Boutiques',           icon: Store,           color: 'text-indigo-500' },
   { id: 'commandes_boutiques', label: 'Commandes Boutiques', icon: ShoppingCart,    color: 'text-teal-500'   },
+  { id: 'codes_promo',         label: 'Codes Promo',         icon: Tag,             color: 'text-pink-500'   },
 ];
 
 function AdminSidebar({ activeSection, onSelectSection, authUser }: {
@@ -102,8 +105,13 @@ export default function AdminDashboard() {
   const [marketRequests, setMarketRequests] = useState<MarketRequest[]>([]);
   const [shops, setShops] = useState<Shop[]>([]);
   const [mpOrders, setMpOrders] = useState<MarketplaceOrder[]>([]);
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [sectionLoading, setSectionLoading] = useState(false);
+  const [newPromo, setNewPromo] = useState({
+    code: '', discount_type: 'PERCENTAGE', value: '', min_order_amount: '', usage_limit: '',
+  });
+  const [creatingPromo, setCreatingPromo] = useState(false);
 
   // Guard admin
   useEffect(() => {
@@ -168,13 +176,19 @@ export default function AdminDashboard() {
             setMpOrders(data.results || data);
           }
           break;
+        case 'codes_promo':
+          if (promoCodes.length === 0) {
+            const { data } = await promoApi.adminList();
+            setPromoCodes(data.results || data);
+          }
+          break;
       }
     } catch {
       toast.error('Erreur de chargement.');
     } finally {
       setSectionLoading(false);
     }
-  }, [users, restaurants, deliveryOrders, marketRequests, shops, mpOrders]);
+  }, [users, restaurants, deliveryOrders, marketRequests, shops, mpOrders, promoCodes]);
 
   const handleSection = (section: Section) => {
     setActiveSection(section);
@@ -206,8 +220,43 @@ export default function AdminDashboard() {
       case 'courses_marche':    setMarketRequests([]); break;
       case 'boutiques':         setShops([]); break;
       case 'commandes_boutiques': setMpOrders([]); break;
+      case 'codes_promo':       setPromoCodes([]); break;
     }
     setTimeout(() => loadSection(activeSection), 50);
+  };
+
+  const createPromoCode = async () => {
+    if (!newPromo.code.trim() || !newPromo.value) {
+      toast.error('Code et valeur requis.');
+      return;
+    }
+    setCreatingPromo(true);
+    try {
+      const { data } = await promoApi.adminCreate({
+        code: newPromo.code.trim().toUpperCase(),
+        discount_type: newPromo.discount_type,
+        value: Number(newPromo.value),
+        min_order_amount: newPromo.min_order_amount ? Number(newPromo.min_order_amount) : 0,
+        usage_limit: newPromo.usage_limit ? Number(newPromo.usage_limit) : null,
+        applicable_order_types: [],
+      });
+      setPromoCodes(prev => [data, ...prev]);
+      setNewPromo({ code: '', discount_type: 'PERCENTAGE', value: '', min_order_amount: '', usage_limit: '' });
+      toast.success('Code promo créé.');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: Record<string, string[]> } };
+      const msg = error.response?.data ? Object.values(error.response.data)[0] : 'Erreur lors de la création.';
+      toast.error(Array.isArray(msg) ? msg[0] : String(msg));
+    } finally {
+      setCreatingPromo(false);
+    }
+  };
+
+  const togglePromoActive = async (id: number) => {
+    try {
+      const { data } = await promoApi.adminToggleActive(id);
+      setPromoCodes(prev => prev.map(p => p.id === id ? { ...p, is_active: data.is_active } : p));
+    } catch { toast.error('Erreur.'); }
   };
 
   const currentSection = SECTIONS.find(s => s.id === activeSection)!;
@@ -692,6 +741,102 @@ export default function AdminDashboard() {
                     <p className="font-semibold">Aucune commande</p>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {!sectionLoading && activeSection === 'codes_promo' && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-2xl border border-warm-200 p-4">
+                <h2 className="font-bold text-warm-900 mb-3">Nouveau code promo</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <Input
+                    placeholder="Code (ex: BIENVENUE10)"
+                    value={newPromo.code}
+                    onChange={e => setNewPromo(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                  />
+                  <select
+                    value={newPromo.discount_type}
+                    onChange={e => setNewPromo(prev => ({ ...prev, discount_type: e.target.value }))}
+                    className="rounded-xl border border-warm-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  >
+                    <option value="PERCENTAGE">Pourcentage (%)</option>
+                    <option value="FIXED">Montant fixe (GNF)</option>
+                  </select>
+                  <Input
+                    type="number"
+                    placeholder="Valeur"
+                    value={newPromo.value}
+                    onChange={e => setNewPromo(prev => ({ ...prev, value: e.target.value }))}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Commande min. (GNF)"
+                    value={newPromo.min_order_amount}
+                    onChange={e => setNewPromo(prev => ({ ...prev, min_order_amount: e.target.value }))}
+                  />
+                  <Input
+                    type="number"
+                    placeholder="Limite d'usage (optionnel)"
+                    value={newPromo.usage_limit}
+                    onChange={e => setNewPromo(prev => ({ ...prev, usage_limit: e.target.value }))}
+                  />
+                </div>
+                <Button onClick={createPromoCode} loading={creatingPromo} className="mt-3" size="sm">
+                  Créer le code promo
+                </Button>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-warm-200 overflow-hidden">
+                <div className="p-4 border-b border-warm-100">
+                  <h2 className="font-bold text-warm-900">Codes promo ({promoCodes.length})</h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-warm-50">
+                      <tr>
+                        {['Code', 'Réduction', 'Min. commande', 'Utilisations', 'Statut', 'Action'].map(h => (
+                          <th key={h} className="text-left px-4 py-3 text-xs font-bold text-warm-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-warm-100">
+                      {promoCodes.map(promo => (
+                        <tr key={promo.id} className="hover:bg-warm-50 transition-colors">
+                          <td className="px-4 py-3 text-sm font-bold text-warm-900 whitespace-nowrap">{promo.code}</td>
+                          <td className="px-4 py-3 text-sm text-warm-700 whitespace-nowrap">
+                            {promo.discount_type === 'PERCENTAGE' ? `${promo.value}%` : formatCurrency(promo.value)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-warm-500 whitespace-nowrap">{formatCurrency(promo.min_order_amount)}</td>
+                          <td className="px-4 py-3 text-sm text-warm-500 whitespace-nowrap">
+                            {promo.times_used}{promo.usage_limit ? ` / ${promo.usage_limit}` : ''}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-xs px-2 py-1 rounded-full font-semibold ${promo.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {promo.is_active ? 'Actif' : 'Inactif'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <button onClick={() => togglePromoActive(promo.id)}
+                              className={`text-xs font-semibold px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap ${
+                                promo.is_active
+                                  ? 'bg-red-50 text-red-600 hover:bg-red-100'
+                                  : 'bg-green-50 text-green-600 hover:bg-green-100'
+                              }`}>
+                              {promo.is_active ? 'Désactiver' : 'Activer'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {promoCodes.length === 0 && (
+                    <div className="text-center py-12 text-warm-400">
+                      <Tag className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                      <p className="font-semibold">Aucun code promo</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}

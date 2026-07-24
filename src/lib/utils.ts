@@ -61,3 +61,9 @@ export const MARKET_NAMES = [
   'Marché Madina', 'Marché Cosa', 'Marché Dixinn', 'Marché Matam',
   'Marché Bambeto', 'Marché Koloma', 'Marché Kaloum', 'Grand Marché'
 ];
+
+// Doit rester synchronisé avec config/constants.py (GUINEA_CITIES) côté backend.
+export const GUINEA_CITIES = [
+  'Conakry', 'Kindia', 'Kankan', 'Labé', "N'Zérékoré",
+  'Boké', 'Mamou', 'Faranah', 'Kissidougou', 'Guéckédou',
+];
