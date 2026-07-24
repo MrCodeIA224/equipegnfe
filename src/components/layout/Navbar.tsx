@@ -9,6 +9,7 @@ import Cookies from 'js-cookie';
 import { cn, GUINEA_CITIES } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { useCity } from '@/context/CityContext';
+import NotificationBell from './NotificationBell';
 
 export default function Navbar() {
   const router = useRouter();
@@ -78,6 +79,7 @@ export default function Navbar() {
 
           {/* Right */}
           <div className="hidden md:flex items-center gap-3">
+            {user && <NotificationBell />}
             {user ? (
               <div className="relative">
                 <button
@@ -140,12 +142,15 @@ export default function Navbar() {
           </div>
 
           {/* Mobile toggle */}
-          <button
-            className="md:hidden p-2 rounded-xl hover:bg-warm-100 transition-colors"
-            onClick={() => setMobileOpen(!mobileOpen)}
-          >
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+          <div className="md:hidden flex items-center gap-1">
+            {user && <NotificationBell />}
+            <button
+              className="p-2 rounded-xl hover:bg-warm-100 transition-colors"
+              onClick={() => setMobileOpen(!mobileOpen)}
+            >
+              {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
       </div>
 

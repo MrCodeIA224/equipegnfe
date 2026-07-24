@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, ToggleLeft, ToggleRight, AlertTriangle } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { Plus, ToggleLeft, ToggleRight, AlertTriangle, MapPin } from 'lucide-react';
 import { deliveryApi } from '@/lib/api';
+
+const MapPicker = dynamic(() => import('@/components/map/MapPicker'), { ssr: false });
 import { Restaurant, MenuItem, DeliveryOrder } from '@/types';
 import { formatCurrency, formatDate, ORDER_STATUS_COLORS } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
@@ -20,6 +23,7 @@ export default function RestaurantDashboard() {
   const [orders, setOrders] = useState<DeliveryOrder[]>([]);
   const [tab, setTab] = useState<'orders' | 'menu' | 'create'>('orders');
   const [loading, setLoading] = useState(true);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -70,6 +74,16 @@ export default function RestaurantDashboard() {
   };
 
   const livreurCancelledOrders = orders.filter(o => o.status === 'LIVREUR_CANCELLED');
+
+  const saveLocation = async (lat: number, lng: number) => {
+    if (!selectedRestaurant) return;
+    try {
+      const { data } = await deliveryApi.updateRestaurant(selectedRestaurant.id, { latitude: lat, longitude: lng });
+      setRestaurants(prev => prev.map(r => r.id === data.id ? data : r));
+      setSelectedRestaurant(data);
+      toast.success('Emplacement enregistré.');
+    } catch { toast.error('Erreur lors de l\'enregistrement de l\'emplacement.'); }
+  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" /></div>;
 
@@ -138,6 +152,23 @@ export default function RestaurantDashboard() {
                 </button>
               </div>
             </div>
+            <button
+              onClick={() => setShowLocationPicker(v => !v)}
+              className="flex items-center gap-1.5 mt-3 text-xs font-semibold text-primary-600 hover:underline"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              {selectedRestaurant.latitude ? 'Modifier l\'emplacement' : 'Définir l\'emplacement'}
+            </button>
+            {showLocationPicker && (
+              <div className="mt-3">
+                <MapPicker
+                  latitude={selectedRestaurant.latitude ? parseFloat(selectedRestaurant.latitude) : null}
+                  longitude={selectedRestaurant.longitude ? parseFloat(selectedRestaurant.longitude) : null}
+                  onChange={saveLocation}
+                  height={260}
+                />
+              </div>
+            )}
           </Card>
 
           <div className="flex gap-2 mb-6">

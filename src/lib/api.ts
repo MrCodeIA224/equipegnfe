@@ -195,3 +195,35 @@ export const marketplaceApi = {
   confirmPayment: (orderId: number, data: { reference: string; otp_code: string }) =>
     api.post(`/marketplace/orders/${orderId}/payment/confirm/`, data),
 };
+
+// ======================================
+// Position live du livreur
+// ======================================
+export const livreurPositionApi = {
+  push: (data: { latitude: number; longitude: number; order_type?: string; order_id?: number }) =>
+    api.post('/auth/livreurs/position/', data),
+  getForDeliveryOrder: (orderId: number) => api.get(`/delivery/orders/${orderId}/livreur-position/`),
+  getForMarketRequest: (requestId: number) => api.get(`/market/requests/${requestId}/livreur-position/`),
+  getForMarketplaceOrder: (orderId: number) => api.get(`/marketplace/orders/${orderId}/livreur-position/`),
+};
+
+// ======================================
+// Notifications in-app
+// ======================================
+export const notificationApi = {
+  list: () => api.get('/auth/notifications/'),
+  unreadCount: () => api.get('/auth/notifications/unread_count/'),
+  markRead: (id: number) => api.post(`/auth/notifications/${id}/mark_read/`),
+  markAllRead: () => api.post('/auth/notifications/mark_all_read/'),
+};
+
+// ======================================
+// Chat par commande
+// ======================================
+export const chatApi = {
+  open: (orderType: string, orderId: number) =>
+    api.post('/auth/conversations/open/', { order_type: orderType, order_id: orderId }),
+  getMessages: (conversationId: number) => api.get(`/auth/conversations/${conversationId}/messages/`),
+  sendMessage: (conversationId: number, body: string) =>
+    api.post(`/auth/conversations/${conversationId}/messages/`, { body }),
+};

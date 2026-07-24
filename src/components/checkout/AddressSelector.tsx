@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { MapPin, Plus } from 'lucide-react';
 import { addressApi } from '@/lib/api';
 import { Address } from '@/types';
@@ -7,6 +8,8 @@ import { GUINEA_CITIES } from '@/lib/utils';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import toast from 'react-hot-toast';
+
+const MapPicker = dynamic(() => import('@/components/map/MapPicker'), { ssr: false });
 
 interface AddressSelectorProps {
   value: string;
@@ -21,6 +24,8 @@ export default function AddressSelector({ value, city, onChange }: AddressSelect
   const [newLabel, setNewLabel] = useState('');
   const [newAddress, setNewAddress] = useState('');
   const [newCity, setNewCity] = useState('Conakry');
+  const [newLat, setNewLat] = useState<number | null>(null);
+  const [newLng, setNewLng] = useState<number | null>(null);
 
   useEffect(() => {
     addressApi.list()
@@ -35,12 +40,17 @@ export default function AddressSelector({ value, city, onChange }: AddressSelect
       return;
     }
     try {
-      const { data } = await addressApi.create({ label: newLabel, full_address: newAddress, city: newCity });
+      const { data } = await addressApi.create({
+        label: newLabel, full_address: newAddress, city: newCity,
+        latitude: newLat, longitude: newLng,
+      });
       setAddresses(prev => [data, ...prev]);
       onChange(data.full_address, data.city);
       setAdding(false);
       setNewLabel('');
       setNewAddress('');
+      setNewLat(null);
+      setNewLng(null);
       toast.success('Adresse enregistrée.');
     } catch {
       toast.error('Erreur lors de l\'enregistrement de l\'adresse.');
@@ -91,6 +101,15 @@ export default function AddressSelector({ value, city, onChange }: AddressSelect
           >
             {GUINEA_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
+          <div>
+            <p className="text-xs text-warm-500 mb-1">Placez un repère sur la carte (optionnel).</p>
+            <MapPicker
+              latitude={newLat}
+              longitude={newLng}
+              onChange={(lat, lng) => { setNewLat(lat); setNewLng(lng); }}
+              height={220}
+            />
+          </div>
           <div className="flex gap-2">
             <Button type="button" size="sm" className="flex-1" onClick={saveNewAddress}>Enregistrer</Button>
             <Button type="button" size="sm" variant="ghost" onClick={() => setAdding(false)}>Annuler</Button>

@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Search, Star, Clock, MapPin, Filter, Truck, X, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { deliveryApi } from '@/lib/api';
+
+const LocationMap = dynamic(() => import('@/components/map/LocationMap'), { ssr: false });
 import { Restaurant, MenuItem, CartItem, PaymentMethod } from '@/types';
 import { formatCurrency, truncate } from '@/lib/utils';
 import Button from '@/components/ui/Button';
@@ -216,6 +219,17 @@ export default function DeliveryPage() {
                 </div>
               </div>
             </div>
+
+            {selectedRestaurant.latitude && selectedRestaurant.longitude && (
+              <div className="mb-6">
+                <LocationMap
+                  latitude={parseFloat(selectedRestaurant.latitude)}
+                  longitude={parseFloat(selectedRestaurant.longitude)}
+                  label={selectedRestaurant.name}
+                  height={200}
+                />
+              </div>
+            )}
 
             {menuByCategory.map(({ category, items }) => (
               <div key={category.id ?? 'other'} className="mb-7">

@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Plus, Package, AlertTriangle } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { Plus, Package, AlertTriangle, MapPin } from 'lucide-react';
 import { marketplaceApi } from '@/lib/api';
+
+const MapPicker = dynamic(() => import('@/components/map/MapPicker'), { ssr: false });
 import { Shop, Product, MarketplaceOrder } from '@/types';
 import { formatCurrency, formatDate, ORDER_STATUS_COLORS } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
@@ -18,6 +21,7 @@ export default function BoutiqueDashboard() {
   const [orders, setOrders] = useState<MarketplaceOrder[]>([]);
   const [tab, setTab] = useState<'orders' | 'products'>('orders');
   const [loading, setLoading] = useState(true);
+  const [locationPickerShopId, setLocationPickerShopId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user || user.role !== 'BOUTIQUIERR') { router.push('/auth/login'); return; }
@@ -41,6 +45,14 @@ export default function BoutiqueDashboard() {
   };
 
   const livreurCancelledOrders = orders.filter(o => o.status === 'LIVREUR_CANCELLED');
+
+  const saveShopLocation = async (shopId: number, lat: number, lng: number) => {
+    try {
+      const { data } = await marketplaceApi.updateShop(shopId, { latitude: lat, longitude: lng });
+      setShops(prev => prev.map(s => s.id === shopId ? { ...s, ...data } : s));
+      toast.success('Emplacement enregistré.');
+    } catch { toast.error('Erreur lors de l\'enregistrement de l\'emplacement.'); }
+  };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full" /></div>;
 
@@ -159,10 +171,27 @@ export default function BoutiqueDashboard() {
           <div className="space-y-4">
             {shops.map(shop => (
               <div key={shop.id}>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-1">
                   <h3 className="font-bold text-warm-900">{shop.name}</h3>
                   <span className="text-xs text-warm-500">{shop.products_count} produits</span>
                 </div>
+                <button
+                  onClick={() => setLocationPickerShopId(prev => prev === shop.id ? null : shop.id)}
+                  className="flex items-center gap-1.5 mb-3 text-xs font-semibold text-primary-600 hover:underline"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  {shop.latitude ? 'Modifier l\'emplacement' : 'Définir l\'emplacement'}
+                </button>
+                {locationPickerShopId === shop.id && (
+                  <div className="mb-4">
+                    <MapPicker
+                      latitude={shop.latitude ? parseFloat(shop.latitude) : null}
+                      longitude={shop.longitude ? parseFloat(shop.longitude) : null}
+                      onChange={(lat, lng) => saveShopLocation(shop.id, lat, lng)}
+                      height={260}
+                    />
+                  </div>
+                )}
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {shop.products?.map(product => (
                     <Card key={product.id} className="!p-3">

@@ -1,7 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Search, Star, ShoppingBag, Filter, Plus, Minus, ShoppingCart, MapPin, Phone, X } from 'lucide-react';
 import { marketplaceApi } from '@/lib/api';
+
+const LocationMap = dynamic(() => import('@/components/map/LocationMap'), { ssr: false });
 import { Category, Shop, Product, CartItem, PaymentMethod } from '@/types';
 import { formatCurrency, truncate } from '@/lib/utils';
 import Button from '@/components/ui/Button';
@@ -247,6 +250,17 @@ export default function BoutiquesPage() {
               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />{selectedShop.rating}
             </div>
           </div>
+
+          {selectedShop.latitude && selectedShop.longitude && (
+            <div className="mb-6">
+              <LocationMap
+                latitude={parseFloat(selectedShop.latitude)}
+                longitude={parseFloat(selectedShop.longitude)}
+                label={selectedShop.name}
+                height={200}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredProducts.map(product => {

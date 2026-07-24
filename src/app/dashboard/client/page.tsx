@@ -1,10 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { Package, ShoppingBag, Store, Clock, ChevronRight } from 'lucide-react';
+import { Package, ShoppingBag, Store, Clock, ChevronRight, MapPin, MessageCircle } from 'lucide-react';
 import { deliveryApi, marketApi, marketplaceApi } from '@/lib/api';
 import { DeliveryOrder, MarketRequest, MarketplaceOrder } from '@/types';
 import { formatCurrency, formatDate, ORDER_STATUS_COLORS } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import OrderTrackingPanel from '@/components/tracking/OrderTrackingPanel';
+import ChatPanel from '@/components/chat/ChatPanel';
 import Link from 'next/link';
 import { getUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -17,6 +20,9 @@ export default function ClientDashboard() {
   const [mpOrders, setMpOrders] = useState<MarketplaceOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'delivery' | 'market' | 'marketplace'>('delivery');
+  const [openPanelKey, setOpenPanelKey] = useState<string | null>(null);
+
+  const togglePanel = (key: string) => setOpenPanelKey(prev => (prev === key ? null : key));
 
   useEffect(() => {
     const user = getUser();
@@ -111,6 +117,24 @@ export default function ClientDashboard() {
                 </div>
                 <p className="text-base font-black text-primary-500">{formatCurrency(order.total_price)}</p>
               </div>
+              {order.livreur_id && (
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  {['PICKED_UP', 'DELIVERING'].includes(order.status) && (
+                    <Button size="sm" variant="ghost" onClick={() => togglePanel(`track-delivery-${order.id}`)}>
+                      <MapPin className="w-4 h-4" /> Suivre la livraison
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => togglePanel(`chat-delivery-${order.id}`)}>
+                    <MessageCircle className="w-4 h-4" /> Chat
+                  </Button>
+                </div>
+              )}
+              {openPanelKey === `track-delivery-${order.id}` && (
+                <div className="mt-3"><OrderTrackingPanel orderKind="delivery" orderId={order.id} /></div>
+              )}
+              {openPanelKey === `chat-delivery-${order.id}` && (
+                <div className="mt-3"><ChatPanel orderType="DELIVERY" orderId={order.id} /></div>
+              )}
             </Card>
           ))}
         </div>
@@ -161,6 +185,24 @@ export default function ClientDashboard() {
                     </div>
                   )}
                 </div>
+                {req.coursier_id && (
+                  <div className="flex gap-2 mt-3 flex-wrap">
+                    {req.livreur_id && req.status === 'DELIVERING' && (
+                      <Button size="sm" variant="ghost" onClick={() => togglePanel(`track-market-${req.id}`)}>
+                        <MapPin className="w-4 h-4" /> Suivre la livraison
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={() => togglePanel(`chat-market-${req.id}`)}>
+                      <MessageCircle className="w-4 h-4" /> Chat
+                    </Button>
+                  </div>
+                )}
+                {openPanelKey === `track-market-${req.id}` && (
+                  <div className="mt-3"><OrderTrackingPanel orderKind="market" orderId={req.id} /></div>
+                )}
+                {openPanelKey === `chat-market-${req.id}` && (
+                  <div className="mt-3"><ChatPanel orderType="MARKET" orderId={req.id} /></div>
+                )}
               </div>
             </Card>
           ))}
@@ -193,6 +235,24 @@ export default function ClientDashboard() {
                 </div>
                 <p className="text-base font-black text-primary-500">{formatCurrency(order.total_price)}</p>
               </div>
+              {order.livreur_id && (
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  {order.status === 'DELIVERING' && (
+                    <Button size="sm" variant="ghost" onClick={() => togglePanel(`track-marketplace-${order.id}`)}>
+                      <MapPin className="w-4 h-4" /> Suivre la livraison
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => togglePanel(`chat-marketplace-${order.id}`)}>
+                    <MessageCircle className="w-4 h-4" /> Chat
+                  </Button>
+                </div>
+              )}
+              {openPanelKey === `track-marketplace-${order.id}` && (
+                <div className="mt-3"><OrderTrackingPanel orderKind="marketplace" orderId={order.id} /></div>
+              )}
+              {openPanelKey === `chat-marketplace-${order.id}` && (
+                <div className="mt-3"><ChatPanel orderType="MARKETPLACE" orderId={order.id} /></div>
+              )}
             </Card>
           ))}
         </div>

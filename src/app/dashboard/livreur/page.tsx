@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { Truck, Package, CheckCircle, MapPin, AlertTriangle, RefreshCw, ShoppingCart } from 'lucide-react';
+import { Truck, Package, CheckCircle, MapPin, AlertTriangle, RefreshCw, ShoppingCart, MessageCircle, Radio } from 'lucide-react';
 import { deliveryApi, marketApi, marketplaceApi } from '@/lib/api';
 import { DeliveryOrder, MarketRequest, MarketplaceOrder } from '@/types';
 import { formatCurrency, formatDate, ORDER_STATUS_COLORS } from '@/lib/utils';
@@ -10,6 +10,8 @@ import toast from 'react-hot-toast';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { usePolling } from '@/hooks/usePolling';
+import { useLivreurBroadcast } from '@/hooks/useLivreurBroadcast';
+import ChatPanel from '@/components/chat/ChatPanel';
 
 export default function LivreurDashboard() {
   const router = useRouter();
@@ -21,6 +23,7 @@ export default function LivreurDashboard() {
   const [myMpOrders, setMyMpOrders] = useState<MarketplaceOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'available' | 'mine'>('available');
+  const [openChatKey, setOpenChatKey] = useState<string | null>(null);
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -62,6 +65,13 @@ export default function LivreurDashboard() {
 
   // Auto-refresh silencieux (sans écran de chargement) toutes les 15s.
   usePolling(() => loadData(true), 15000, !!user && user.role === 'LIVREUR');
+
+  // Diffuse la position GPS uniquement pendant une livraison active (DELIVERING).
+  const activeDeliveringOrder = myDeliveries.find(o => o.status === 'DELIVERING');
+  const activeMpDeliveringOrder = myMpOrders.find(o => o.status === 'DELIVERING');
+  const activeOrderType = activeDeliveringOrder ? 'DELIVERY' : activeMpDeliveringOrder ? 'MARKETPLACE' : undefined;
+  const activeOrderId = activeDeliveringOrder?.id ?? activeMpDeliveringOrder?.id;
+  useLivreurBroadcast(!!activeOrderType, activeOrderType, activeOrderId);
 
   const acceptDelivery = async (orderId: number) => {
     try {
@@ -320,6 +330,11 @@ export default function LivreurDashboard() {
                   <p className="text-xs text-warm-500 flex items-center gap-1 mb-3">
                     <MapPin className="w-3 h-3" />{order.delivery_address}
                   </p>
+                  {order.status === 'DELIVERING' && (
+                    <p className="text-xs text-green-600 flex items-center gap-1 mb-3 font-semibold">
+                      <Radio className="w-3 h-3" /> Position partagée avec le client
+                    </p>
+                  )}
                   <div className="flex gap-2 flex-wrap">
                     {order.status === 'PICKED_UP' && (
                       <>
@@ -336,7 +351,18 @@ export default function LivreurDashboard() {
                         <CheckCircle className="w-4 h-4" /> Marquer comme livré
                       </Button>
                     )}
+                    {['PICKED_UP', 'DELIVERING'].includes(order.status) && (
+                      <Button size="sm" variant="ghost"
+                        onClick={() => setOpenChatKey(prev => prev === `delivery-${order.id}` ? null : `delivery-${order.id}`)}>
+                        <MessageCircle className="w-4 h-4" /> Chat
+                      </Button>
+                    )}
                   </div>
+                  {openChatKey === `delivery-${order.id}` && (
+                    <div className="mt-3">
+                      <ChatPanel orderType="DELIVERY" orderId={order.id} />
+                    </div>
+                  )}
                 </Card>
               ))}
             </>
@@ -372,6 +398,11 @@ export default function LivreurDashboard() {
                   <p className="text-xs text-warm-500 flex items-center gap-1 mb-3">
                     <MapPin className="w-3 h-3" />{order.delivery_address}
                   </p>
+                  {order.status === 'DELIVERING' && (
+                    <p className="text-xs text-green-600 flex items-center gap-1 mb-3 font-semibold">
+                      <Radio className="w-3 h-3" /> Position partagée avec le client
+                    </p>
+                  )}
                   <div className="flex gap-2 flex-wrap">
                     {order.status === 'DELIVERING' && (
                       <>
@@ -381,9 +412,18 @@ export default function LivreurDashboard() {
                         <Button size="sm" variant="danger" onClick={() => cancelMpDelivery(order.id)}>
                           Annuler la livraison
                         </Button>
+                        <Button size="sm" variant="ghost"
+                          onClick={() => setOpenChatKey(prev => prev === `marketplace-${order.id}` ? null : `marketplace-${order.id}`)}>
+                          <MessageCircle className="w-4 h-4" /> Chat
+                        </Button>
                       </>
                     )}
                   </div>
+                  {openChatKey === `marketplace-${order.id}` && (
+                    <div className="mt-3">
+                      <ChatPanel orderType="MARKETPLACE" orderId={order.id} />
+                    </div>
+                  )}
                 </Card>
               ))}
             </>

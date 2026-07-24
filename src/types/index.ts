@@ -36,6 +36,8 @@ export interface Address {
   label: string;
   full_address: string;
   city: string;
+  latitude?: string | null;
+  longitude?: string | null;
   is_default: boolean;
   created_at: string;
 }
@@ -76,6 +78,8 @@ export interface Restaurant {
   description: string;
   address: string;
   city: string;
+  latitude?: string | null;
+  longitude?: string | null;
   phone: string;
   image?: string;
   banner?: string;
@@ -219,6 +223,8 @@ export interface Shop {
   category_name?: string;
   address: string;
   city: string;
+  latitude?: string | null;
+  longitude?: string | null;
   phone: string;
   whatsapp?: string;
   image?: string;

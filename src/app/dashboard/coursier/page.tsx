@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { MapPin, Clock, CheckCircle, Send } from 'lucide-react';
+import { MapPin, Clock, CheckCircle, Send, MessageCircle } from 'lucide-react';
 import { marketApi, authApi } from '@/lib/api';
 import { MarketRequest } from '@/types';
 import { formatCurrency, formatDate, ORDER_STATUS_COLORS, MARKET_NAMES } from '@/lib/utils';
 import { Card } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
+import ChatPanel from '@/components/chat/ChatPanel';
 import toast from 'react-hot-toast';
 import { getUser } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
@@ -20,6 +21,7 @@ export default function CoursierDashboard() {
   const [tab, setTab] = useState<'available' | 'mine'>('available');
   const [loading, setLoading] = useState(true);
   const [offerForm, setOfferForm] = useState<{ requestId: number; message: string; fee: string } | null>(null);
+  const [openChatId, setOpenChatId] = useState<number | null>(null);
 
   // Sépare les demandes ouvertes en "je n'ai pas encore proposé" / "j'ai déjà une offre en attente"
   const splitOpenRequests = (requests: MarketRequest[], userId: number) => {
@@ -241,7 +243,7 @@ export default function CoursierDashboard() {
                 ))}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {req.status === 'ASSIGNED' && (
                   <Button size="sm" className="bg-green-500 hover:bg-green-600" onClick={() => updateStatus(req.id, 'SHOPPING')}>
                     Démarrer les courses
@@ -252,7 +254,13 @@ export default function CoursierDashboard() {
                     <CheckCircle className="w-4 h-4" /> Courses terminées
                   </Button>
                 )}
+                <Button size="sm" variant="ghost" onClick={() => setOpenChatId(prev => prev === req.id ? null : req.id)}>
+                  <MessageCircle className="w-4 h-4" /> Chat
+                </Button>
               </div>
+              {openChatId === req.id && (
+                <div className="mt-3"><ChatPanel orderType="MARKET" orderId={req.id} /></div>
+              )}
             </Card>
               ))}
             </>
