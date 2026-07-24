@@ -67,6 +67,9 @@ function LoginForm() {
           </div>
           <Button type="submit" loading={loading} className="w-full" size="lg">Se connecter</Button>
         </form>
+        <p className="mt-3 text-center text-sm">
+          <Link href="/auth/forgot-password" className="text-warm-500 hover:underline">Mot de passe oublié ?</Link>
+        </p>
         <p className="mt-4 text-center text-sm text-warm-500">
           Pas encore de compte ?{' '}
           <Link href="/auth/register" className="text-primary-500 font-semibold hover:underline">S&apos;inscrire</Link>

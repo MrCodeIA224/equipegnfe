@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Menu, X, ShoppingBag, Truck, ShoppingCart, User, LogOut, ChevronDown, MapPin } from 'lucide-react';
+import { Menu, X, ShoppingBag, Truck, ShoppingCart, User, LogOut, ChevronDown, MapPin, Settings } from 'lucide-react';
 import { getDashboardPath, ROLE_LABELS, ROLE_COLORS } from '@/lib/auth';
 import { authApi } from '@/lib/api';
 import Cookies from 'js-cookie';
@@ -112,6 +112,14 @@ export default function Navbar() {
                       <User className="w-4 h-4" />
                       Mon tableau de bord
                     </Link>
+                    <Link
+                      href="/compte"
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-warm-700 hover:bg-warm-50 transition-colors"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      <Settings className="w-4 h-4" />
+                      Mon compte
+                    </Link>
                     <hr className="my-1 border-warm-100" />
                     <button
                       onClick={handleLogout}
@@ -206,6 +214,14 @@ export default function Navbar() {
               >
                 <User className="w-5 h-5" />
                 Mon tableau de bord
+              </Link>
+              <Link
+                href="/compte"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-warm-700 hover:bg-warm-100"
+                onClick={() => setMobileOpen(false)}
+              >
+                <Settings className="w-5 h-5" />
+                Mon compte
               </Link>
               <button
                 onClick={handleLogout}

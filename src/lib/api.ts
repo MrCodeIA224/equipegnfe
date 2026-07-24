@@ -63,6 +63,16 @@ export const authApi = {
   adminUserStats: () => api.get('/auth/admin/users/stats/'),
   toggleVerify: (id: number) => api.post(`/auth/admin/users/${id}/toggle_verify/`),
   toggleActive: (id: number) => api.post(`/auth/admin/users/${id}/toggle_active/`),
+
+  requestPasswordReset: (email: string) =>
+    api.post('/auth/password-reset/request/', { email }),
+  confirmPasswordReset: (data: { email: string; otp_code: string; new_password: string; new_password2: string }) =>
+    api.post('/auth/password-reset/confirm/', data),
+
+  requestEmailChange: (data: { current_email: string; new_email: string }) =>
+    api.post('/auth/me/email-change/request/', data),
+  confirmEmailChange: (otp_code: string) =>
+    api.post('/auth/me/email-change/confirm/', { otp_code }),
 };
 
 // ======================================
